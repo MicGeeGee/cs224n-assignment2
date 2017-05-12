@@ -21,6 +21,9 @@ class PartialParse(object):
         self.sentence = sentence
 
         ### YOUR CODE HERE
+        self.stack = ["ROOT"]
+        self.buffer = list(sentence)
+        self.dependencies = []
         ### END YOUR CODE
 
     def parse_step(self, transition):
@@ -31,6 +34,20 @@ class PartialParse(object):
                         and right-arc transitions.
         """
         ### YOUR CODE HERE
+        if transition == "S":
+            self.stack.append(self.buffer.pop(0))
+        elif transition == "LA":
+            lastWord = self.stack.pop()
+            secondLastWord = self.stack.pop()
+            self.stack.append(lastWord)
+            self.dependencies.append((lastWord, secondLastWord))
+        elif transition == "RA":
+            lastWord = self.stack.pop()
+            secondLastWord = self.stack.pop()
+            self.stack.append(secondLastWord)
+            self.dependencies.append((secondLastWord, lastWord))
+        else:
+            raise ValueError("Illegal value for the argument [transition]") 
         ### END YOUR CODE
 
     def parse(self, transitions):
@@ -65,8 +82,22 @@ def minibatch_parse(sentences, model, batch_size):
     """
 
     ### YOUR CODE HERE
+    dependencies = []
+    partial_parses = []
+    for sentence in sentences:
+        partial_parses.append(PartialParse(sentence))
+    unfinished_parses = list(partial_parses)
+    while len(unfinished_parses) != 0: # not empty
+        batch_len = min(batch_size, len(unfinished_parses))
+        partial_parses_batch = unfinished_parses[:batch_len]
+        transitions = model.predict(partial_parses_batch)
+        for i in xrange(batch_len):
+            partial_parses_batch[i].parse_step(transitions[i])
+            if len(partial_parses_batch[i].stack) == 1: # Parse complete
+                unfinished_parses.remove(partial_parses_batch[i])
     ### END YOUR CODE
-
+    for partial_parse in partial_parses:
+        dependencies.append(partial_parse.dependencies)
     return dependencies
 
 
